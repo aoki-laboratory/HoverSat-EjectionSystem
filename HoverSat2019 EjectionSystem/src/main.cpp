@@ -23,30 +23,24 @@
 #define   TIMER_INTERRUPT     10      // ms
 #define   LCD
 
+#define LEDC_CHANNEL_0 0
+#define LEDC_TIMER_BIT 16
+
+#define LEDC_BASE_FREQ 1000
+#define GPIO_PIN 19
+
 #define BufferRecords 16
 
-#define NOOFPATTERNS  17
+#define NOOFPATTERNS  5
 
-int parameters[NOOFPATTERNS][5] =
+int parameters[NOOFPATTERNS][2] =
 {
-// Accel, Velocity, Decel, TIme
-{ 1600, 200, 200, 200, 14000 },
-{ 1600, 100, 200, 200, 14500 },
-{ 1600, 400, 200, 200, 13750 },
-{ 1600, 600, 200, 200, 13667 },
-{ 1600, 800, 200, 200, 13625 },
-{ 1600, 1000, 200, 200, 13600 },
-{ 1600, 200, 200, 100, 14500 },
-{ 1600, 200, 200, 400, 13750 },
-{ 1600, 200, 200, 600, 13667 },
-{ 1600, 200, 200, 800, 13625 },
-{ 1600, 200, 200, 1000, 13600 },
-{ 1600, 200, 200, 5000, 13500 },
-{ 1600, 200, 200, 200, 14000 },
-{ 1600, 5000, 200, 5000, 13020 },
-{ 1600, 25, 200, 25, 21000 },
-{ 1600, 200, 200, 200, 14000 },
-{ 1600, 200, 200, 200, 14000 }
+// PWM, EjctionTime/10
+{ 100, 100 },
+{ 80, 100 },
+{ 60, 100 },
+{ 40, 100 },
+{ 20, 100 },
 };
 
 
@@ -61,6 +55,8 @@ bool    hover_flag = false;
 bool    log_flag = false;
 bool    telemetry_flag = false;
 int     cnt10 = 0;
+
+unsigned int pwm;
 
 unsigned long time_ms;
 unsigned long time_stepper = 0;
@@ -130,6 +126,8 @@ volatile int interruptCounterS;
 int totalInterruptCounter;
 int iTimer10;
 
+static const int LED_Pin = 34;
+
 
 hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
@@ -137,7 +135,7 @@ portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 // Parameters
 unsigned char hover_val = 70;
 unsigned int ex_pwm = 100;
-unsigned int ex_time = 1000;
+unsigned int ex_time = 100;
 unsigned char patternNo = 0;
 
 
@@ -194,6 +192,12 @@ void setup() {
     M5.Lcd.print(".");
   }
 
+  ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_BIT);
+  ledcAttachPin(GPIO_PIN, LEDC_CHANNEL_0);
+
+  pinMode(LED_Pin, OUTPUT);
+  
+
   // timeSet
   getTimeFromNTP();
   getTime();
@@ -213,11 +217,11 @@ void setup() {
   timerAlarmWrite(timer, TIMER_INTERRUPT * 1000, true);
   timerAlarmEnable(timer);
 
-  file = SD.open(fname, FILE_APPEND);
-  if( !file ) {
-    M5.Lcd.setCursor(5, 160);
-    M5.Lcd.println("Failed to open sd");
-  }
+  //file = SD.open(fname, FILE_APPEND);
+  //if( !file ) {
+  //  M5.Lcd.setCursor(5, 160);
+  //  M5.Lcd.println("Failed to open sd");
+  //}
 
   
 }
@@ -260,13 +264,17 @@ void loop() {
       break;
 
     case 11:    
-      
+      pwm = map(ex_pwm, 0, 100, 0, 65535);
+      ledcWrite(LEDC_CHANNEL_0, pwm);
+      digitalWrite( LED_Pin, 1 );
       time_buff2 = millis();
       pattern = 12;
       break;
 
     case 12:
-      if( millis() - time_buff2 >= 1000 ) {
+      if( millis() - time_buff2 >= ex_time*10 ) {
+        ledcWrite(LEDC_CHANNEL_0, 0);
+        digitalWrite( LED_Pin, 0 );
         pattern = 0;
       }
       break;
@@ -346,6 +354,7 @@ void loop() {
   // Button Control
   M5.update();
   if (M5.BtnA.wasPressed()) {
+    pattern = 11;
   } else if (M5.BtnB.wasPressed() && pattern == 0) {  
     patternNo++;
     M5.Lcd.fillScreen(BLACK);
@@ -363,10 +372,6 @@ void loop() {
     } else {
       pattern = 111;
     }
-  } else if (M5.BtnB.pressedFor(2000)) {
-    pattern = 11;
-  } else if (M5.BtnC.pressedFor(2000)) {
-    pattern = 21;
   }
 
 }
@@ -411,7 +416,7 @@ void Timer_Interrupt( void ){
       M5.Lcd.setTextSize(3);
       M5.Lcd.setCursor(96, 30);
       M5.Lcd.setTextColor(WHITE);
-      M5.Lcd.printf("Ejec     %3d", parameters[patternNo][0]);
+      M5.Lcd.printf("PWM      %3d", parameters[patternNo][0]);
       M5.Lcd.setCursor(15, 120);
       M5.Lcd.print("No.");
       M5.Lcd.setTextSize(5);
@@ -419,7 +424,7 @@ void Timer_Interrupt( void ){
       M5.Lcd.printf("%2d", patternNo+1);
 
       M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(96, 92);
+      M5.Lcd.setCursor(96, 152);
       M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]*10);
       break;
 
