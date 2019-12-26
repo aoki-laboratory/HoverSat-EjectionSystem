@@ -15,6 +15,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include <EEPROM.h>
+#include <VL53L0X.h>
 #include "BluetoothSerial.h"
 
 
@@ -31,17 +32,25 @@
 
 #define BufferRecords 16
 
-#define NOOFPATTERNS  5
+#define NOOFPATTERNS  10
 
 int parameters[NOOFPATTERNS][2] =
 {
 // PWM, EjctionTime/10
 { 100, 100 },
+{ 90, 100 },
 { 80, 100 },
+{ 70, 100 },
 { 60, 100 },
+{ 50, 100 },
 { 40, 100 },
+{ 30, 100 },
 { 20, 100 },
+{ 10, 100 },
+
 };
+
+VL53L0X sensor;
 
 
 
@@ -110,9 +119,7 @@ typedef struct {
     String  log_time;
     int     log_pattern;
     String  log_time_ms;
-    float   log_length;
-    float   log_velocity;
-    float   log_accel;
+    unsigned int log_distance;
 } RecordType;
 
 static RecordType buffer[2][BufferRecords];
@@ -126,7 +133,7 @@ volatile int interruptCounterS;
 int totalInterruptCounter;
 int iTimer10;
 
-static const int LED_Pin = 34;
+static const int LED_Pin = 17;
 
 
 hw_timer_t * timer = NULL;
@@ -137,6 +144,8 @@ unsigned char hover_val = 70;
 unsigned int ex_pwm = 100;
 unsigned int ex_time = 100;
 unsigned char patternNo = 0;
+
+unsigned int ex_distance;
 
 
 
@@ -196,6 +205,10 @@ void setup() {
   ledcAttachPin(GPIO_PIN, LEDC_CHANNEL_0);
 
   pinMode(LED_Pin, OUTPUT);
+ 
+  sensor.init();
+  sensor.setTimeout(500);
+  sensor.startContinuous(10);
   
 
   // timeSet
@@ -253,7 +266,7 @@ void loop() {
         file.print(",");
         file.print(temp[i].log_time_ms);
         file.print(",");
-        file.print(temp[i].log_velocity);
+        file.print(temp[i].log_distance);
         file.println(",");
     }
     file.close();
@@ -266,7 +279,7 @@ void loop() {
     case 11:    
       pwm = map(ex_pwm, 0, 100, 0, 65535);
       ledcWrite(LEDC_CHANNEL_0, pwm);
-      digitalWrite( LED_Pin, 1 );
+      digitalWrite( LED_Pin, 1 );  
       time_buff2 = millis();
       pattern = 12;
       break;
@@ -396,6 +409,7 @@ void Timer_Interrupt( void ){
       rp->log_time = timeStr;
       rp->log_pattern = pattern;
       rp->log_time_ms = time_ms;
+      rp->log_distance = ex_distance;
       if (++bufferIndex[writeBank] >= BufferRecords) {
           writeBank = !writeBank;
       }      
@@ -424,8 +438,16 @@ void Timer_Interrupt( void ){
       M5.Lcd.printf("%2d", patternNo+1);
 
       M5.Lcd.setTextSize(2);
-      M5.Lcd.setCursor(96, 152);
+      M5.Lcd.setCursor(96, 132);
       M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]*10);
+
+      M5.Lcd.setTextColor(BLACK);
+      M5.Lcd.setCursor(96, 172);
+      M5.Lcd.printf("VL53L0X Value %4d", ex_distance);
+      M5.Lcd.setTextColor(WHITE);
+      ex_distance = sensor.readRangeContinuousMillimeters();
+      M5.Lcd.setCursor(96, 172);
+      M5.Lcd.printf("VL53L0X Value %4d", ex_distance);
       break;
 
     case 2:
