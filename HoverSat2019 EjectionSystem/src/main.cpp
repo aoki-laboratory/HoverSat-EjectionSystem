@@ -58,6 +58,8 @@ unsigned char pattern = 0;
 bool log_flag = false;
 unsigned char pwm;
 
+unsigned long time_ms;
+unsigned long time_buff = 0;
 volatile int interruptCounter;
 int iTimer10;
 
@@ -68,7 +70,6 @@ TaskHandle_t task_handl;
 hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
-
 // Parameters
 unsigned char hover_val = 70;
 unsigned int ex_pwm = 100;
@@ -78,7 +79,6 @@ unsigned char patternNo = 0;
 unsigned int ex_distance;
 unsigned int ex_interval;
 unsigned int flag = 0;
-
 
 //Prototype
 //------------------------------------------------------------------//
@@ -91,39 +91,69 @@ void IRAM_ATTR onTimer(void);
 void Timer_Interrupt(void);
 void LCD_Control(void);
 
-
-
 //Setup #1
 //------------------------------------------------------------------//
 void setup() {
+  M5.begin();
   delay(1000);
   setupWiFiUDPserver();
-  xTaskCreatePinnedToCore(&taskDisplay, "taskDisplay", 8192, NULL, 10, &task_handl, 0);
+  
+  xTaskCreatePinnedToCore(&taskDisplay, "taskDisplay", 4096, NULL, 10, &task_handl, 0);
+
+  // Initialize Timer Interrupt
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &onTimer, true);
+  timerAlarmWrite(timer, TIMER_INTERRUPT * 1000, true);
+  timerAlarmEnable(timer); 
   delay(500);
 }
 
 //Main #1
 //------------------------------------------------------------------//
 void loop() {
-  //receiveUDP();
-  //sendUDP();
-  M5.update();
-  button_action();
-  LCD_Control();
-  delay(10);
+  receiveUDP();
+  Timer_Interrupt(); 
+
+  switch (pattern) {
+    case 0:
+      break;
+
+    case 11:    
+      pwm = map(ex_pwm, 0, 100, 0, 65535);
+      ledcWrite(LEDC_CHANNEL_0, pwm);
+      digitalWrite( LED_Pin, 1 );  
+      time_buff = millis();
+      pattern = 12;
+      flag = 1;
+      break;
+
+    case 12:
+      if( ex_distance >= 30 && flag == 1 ) {
+        flag = 0;
+        M5.Lcd.setTextColor(BLACK);
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.setCursor(96, 192);
+        M5.Lcd.printf("Interval Time %4d", ex_interval);
+        ex_interval = millis() - time_buff;
+      }
+      if( millis() - time_buff >= ex_time*10 ) {
+        ledcWrite(LEDC_CHANNEL_0, 0);
+        digitalWrite( LED_Pin, 0 );
+        pattern = 0;
+      }
+      break; 
+
+  }
 }
 
 //Main #0
 //------------------------------------------------------------------//
 void taskDisplay(void *pvParameters){
-  M5.begin();
-  // Initialize Timer Interrupt
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, TIMER_INTERRUPT * 1000, true);
-  timerAlarmEnable(timer);
-  while(1){
-    //Timer_Interrupt();
+  while(1){    
+    M5.update();
+    button_action();
+    LCD_Control();
+    delay(100);
   }
 }
 
@@ -138,7 +168,6 @@ void Timer_Interrupt( void ){
 
   }
 }
-
 
 // IRAM
 //------------------------------------------------------------------//
@@ -171,7 +200,6 @@ void LCD_Control() {
   M5.Lcd.setTextSize(2);
   M5.Lcd.setCursor(96, 112);
   M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]*10);
-
   M5.Lcd.setTextColor(BLACK);
   M5.Lcd.setCursor(96, 152);
   M5.Lcd.printf("VL53L0X Value %4d", ex_distance);
@@ -202,7 +230,6 @@ void sendUDP(){
   udp.write(udp_flag);
   udp.endPacket();
 }
-
  
 void setupWiFiUDPserver(){
   WiFi.disconnect(true, true);
@@ -216,6 +243,13 @@ void button_action(){
   if (M5.BtnA.wasReleased()) {
   } else if (M5.BtnB.wasReleased()) {
   } else if (M5.BtnC.wasReleased()) {
+    udp_pattern = 11;
+    udp_aa = 12;
+    udp_bb = 13;
+    udp_flag = 0;
+    sendUDP();
+    delay(1000);
+    pattern = 11;
   }
 } 
 
