@@ -15,7 +15,6 @@
 #include <WiFiUdp.h>
 #include <Wire.h>
 #include <time.h>
-#include <EEPROM.h>
 #include <VL53L0X.h>
 
 //Define
@@ -78,7 +77,7 @@ unsigned char patternNo = 0;
 
 unsigned int ex_distance;
 unsigned int ex_interval;
-unsigned int flag = 0;
+unsigned char flag = 0;
 
 //Prototype
 //------------------------------------------------------------------//
@@ -98,14 +97,20 @@ void setup() {
   delay(1000);
   setupWiFiUDPserver();
   
-  xTaskCreatePinnedToCore(&taskDisplay, "taskDisplay", 4096, NULL, 10, &task_handl, 0);
+  xTaskCreatePinnedToCore(&taskDisplay, "taskDisplay", 8192, NULL, 10, &task_handl, 0);
 
   // Initialize Timer Interrupt
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, TIMER_INTERRUPT * 1000, true);
   timerAlarmEnable(timer); 
+  ledcSetup(LEDC_CHANNEL_0, LEDC_BASE_FREQ, LEDC_TIMER_BIT);
+  ledcAttachPin(GPIO_PIN, LEDC_CHANNEL_0);
+  pinMode(LED_Pin, OUTPUT);
+
   delay(500);
+
+
 }
 
 //Main #1
@@ -149,11 +154,14 @@ void loop() {
 //Main #0
 //------------------------------------------------------------------//
 void taskDisplay(void *pvParameters){
+  //sensor.init();
+  //sensor.setTimeout(500);
+  //sensor.startContinuous();
   while(1){    
     M5.update();
     button_action();
-    LCD_Control();
-    delay(100);
+    //LCD_Control();
+    delay(1);
   }
 }
 
@@ -240,15 +248,14 @@ void setupWiFiUDPserver(){
 }
  
 void button_action(){
-  if (M5.BtnA.wasReleased()) {
-  } else if (M5.BtnB.wasReleased()) {
-  } else if (M5.BtnC.wasReleased()) {
+  if (M5.BtnA.isPressed()) {
+  } else if (M5.BtnB.isPressed()) {
+  } else if (M5.BtnC.isPressed()) {
     udp_pattern = 11;
     udp_aa = 12;
     udp_bb = 13;
     udp_flag = 0;
     sendUDP();
-    delay(1000);
     pattern = 11;
   }
 } 
