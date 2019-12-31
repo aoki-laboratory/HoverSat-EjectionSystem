@@ -27,16 +27,15 @@
 #define GPIO_PIN              19
 
 #define NOOFPATTERNS 5
-int parameters[NOOFPATTERNS][2] =
+int parameters[NOOFPATTERNS][3] =
 {
-// PWM, EjctionTime/10
-{ 20, 50 },
-{ 40, 50 },
-{ 60, 50 },
-{ 80, 50 },
-{ 100, 50 },
+// PWM, EjctionTime, HoverTime
+{ 20, 100, 5000 },
+{ 40, 200, 5000 },
+{ 60, 300, 5000 },
+{ 80, 400, 5000 },
+{ 100, 500, 5000 },
 };
-
 VL53L0X sensor;
 
 //Global
@@ -49,13 +48,14 @@ const int to_udp_port = 55556;
 const int my_server_udp_port = 55555;
 
 unsigned char udp_pattern = 0;
-unsigned char udp_aa = 0;
+unsigned char udp_No = 0;
 unsigned char udp_bb = 0;
 unsigned char udp_flag = 0;
 
 unsigned char pattern = 0;
 bool log_flag = false;
 unsigned char pwm;
+unsigned char core0_pattern = 0;
 
 unsigned long time_ms;
 unsigned long time_buff = 0;
@@ -126,6 +126,7 @@ void loop() {
     case 11:    
       pwm = map(ex_pwm, 0, 100, 0, 65535);
       ledcWrite(LEDC_CHANNEL_0, pwm);
+      M5.Lcd.fillRect(0, 0, 80, 80, TFT_RED);
       digitalWrite( LED_Pin, 1 );  
       time_buff = millis();
       pattern = 12;
@@ -144,6 +145,7 @@ void loop() {
       if( millis() - time_buff >= ex_time*10 ) {
         ledcWrite(LEDC_CHANNEL_0, 0);
         digitalWrite( LED_Pin, 0 );
+        M5.Lcd.fillRect(0, 0, 80, 80, TFT_DARKGREY);
         pattern = 0;
       }
       break; 
@@ -154,13 +156,64 @@ void loop() {
 //Main #0
 //------------------------------------------------------------------//
 void taskDisplay(void *pvParameters){
+  M5.Lcd.fillRect(0, 0, 320, 20, TFT_WHITE);
+  M5.Lcd.fillRect(60, 20, 260, 60, TFT_DARKGREY);
+  M5.Lcd.fillRect(0, 80, 60, 160, TFT_DARKGREY);
+  M5.Lcd.fillRect(0, 20, 60, 60, TFT_LIGHTGREY);
+  M5.Lcd.fillRect(0, 220, 320, 20, TFT_WHITE);
+
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(8, 2);
+  M5.Lcd.setTextColor(BLACK);
+  M5.Lcd.print("Satellite Ejector");
+  M5.Lcd.setCursor(40, 222);
+  M5.Lcd.print("Eject");
+  M5.Lcd.setCursor(140, 222);
+  M5.Lcd.print("MODE");
+  M5.Lcd.setCursor(228, 222);
+  M5.Lcd.print("START");
+  M5.Lcd.setTextSize(4);
+  M5.Lcd.setCursor(8, 36);
+  M5.Lcd.setTextColor(BLACK);
+  M5.Lcd.print("Ej");
+  M5.Lcd.setTextSize(3);
+  M5.Lcd.setCursor(80, 40);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+  M5.Lcd.setTextSize(3);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(8, 110);
+  M5.Lcd.print("No.");
+
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setTextSize(5);
+  M5.Lcd.setCursor(0, 150);
+  M5.Lcd.printf("%2d", patternNo+1);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(80, 120);
+  M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(80, 170);
+  M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
+
   //sensor.init();
   //sensor.setTimeout(500);
   //sensor.startContinuous();
   while(1){    
     M5.update();
     button_action();
-    //LCD_Control();
+  
+    switch (core0_pattern) {
+    case 0:
+      LCD_Control();
+      break;
+
+    case 10:
+      core0_pattern = 0;
+      break;
+    }
+
+    core0_pattern++;
     delay(1);
   }
 }
@@ -188,52 +241,50 @@ void IRAM_ATTR onTimer() {
 // LCD_Control
 //------------------------------------------------------------------//
 void LCD_Control() {
-  M5.Lcd.fillRect(0, 0, 80, 80, TFT_WHITE);
-  M5.Lcd.fillRect(80, 0, 240, 80, TFT_DARKGREY);
-  M5.Lcd.fillRect(0, 80, 80, 160, TFT_DARKGREY);
-  M5.Lcd.setTextSize(5);
-  M5.Lcd.setCursor(13, 23);
-  M5.Lcd.setTextColor(BLACK);
-  M5.Lcd.print("Ej");
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.setCursor(96, 30);
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.printf("PWM      %3d", parameters[patternNo][0]);
-  M5.Lcd.setCursor(15, 120);
-  M5.Lcd.print("No.");
-  M5.Lcd.setTextSize(5);
-  M5.Lcd.setCursor(10, 160);
-  M5.Lcd.printf("%2d", patternNo+1);
-
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(96, 112);
-  M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]*10);
-  M5.Lcd.setTextColor(BLACK);
-  M5.Lcd.setCursor(96, 152);
-  M5.Lcd.printf("VL53L0X Value %4d", ex_distance);
-  M5.Lcd.setTextColor(WHITE);
-  ex_distance = sensor.readRangeContinuousMillimeters();
-  M5.Lcd.setCursor(96, 152);
-  M5.Lcd.printf("VL53L0X Value %4d", ex_distance);
-
-  M5.Lcd.setCursor(96, 192);
-  M5.Lcd.printf("Interval Time %4d", ex_interval);
+  
 }
 
 void receiveUDP(){
   int packetSize = udp.parsePacket();
   if(packetSize > 0){
-    udp_pattern = udp.read();
-    udp_aa = udp.read();
+    M5.Lcd.setTextColor(TFT_DARKGREY);
+    M5.Lcd.setTextSize(5);
+    M5.Lcd.setCursor(0, 150);
+    M5.Lcd.printf("%2d", patternNo+1);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setCursor(80, 40);
+    M5.Lcd.setTextColor(TFT_DARKGREY);
+    M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+    M5.Lcd.setTextColor(BLACK);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(80, 120);
+    M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+    M5.Lcd.setCursor(80, 170);
+    M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
+    pattern = udp.read();
+    patternNo = udp.read();
     udp_bb = udp.read();
     udp_flag = udp.read();
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(5);
+    M5.Lcd.setCursor(0, 150);
+    M5.Lcd.printf("%2d", patternNo+1);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setCursor(80, 40);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(80, 120);
+    M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+    M5.Lcd.setCursor(80, 170);
+    M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
   }
 }
  
 void sendUDP(){
   udp.beginPacket(to_udp_address, to_udp_port);
   udp.write(udp_pattern);
-  udp.write(udp_aa);
+  udp.write(udp_No);
   udp.write(udp_bb);
   udp.write(udp_flag);
   udp.endPacket();
@@ -248,15 +299,48 @@ void setupWiFiUDPserver(){
 }
  
 void button_action(){
-  if (M5.BtnA.isPressed()) {
-  } else if (M5.BtnB.isPressed()) {
-  } else if (M5.BtnC.isPressed()) {
+  if (M5.BtnA.wasPressed()) {
     udp_pattern = 11;
-    udp_aa = 12;
-    udp_bb = 13;
-    udp_flag = 0;
     sendUDP();
     pattern = 11;
+  } else if (M5.BtnB.wasPressed()) {
+    M5.Lcd.setTextColor(TFT_DARKGREY);
+    M5.Lcd.setTextSize(5);
+    M5.Lcd.setCursor(0, 150);
+    M5.Lcd.printf("%2d", patternNo+1);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setCursor(80, 40);
+    M5.Lcd.setTextColor(TFT_DARKGREY);
+    M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+    M5.Lcd.setTextColor(BLACK);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(80, 120);
+    M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+    M5.Lcd.setCursor(80, 170);
+    M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
+
+    patternNo++;
+    if( patternNo >= NOOFPATTERNS ) {
+      patternNo = 0;
+    }
+    udp_No = patternNo;
+    sendUDP();
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setTextSize(5);
+    M5.Lcd.setCursor(0, 150);
+    M5.Lcd.printf("%2d", patternNo+1);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.setCursor(80, 40);
+    M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.setCursor(80, 120);
+    M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+    M5.Lcd.setCursor(80, 170);
+    M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
+  } else if (M5.BtnC.wasPressed()) {
+    udp_pattern = 111;
+    sendUDP();
+    pattern = 111;
   }
 } 
 
