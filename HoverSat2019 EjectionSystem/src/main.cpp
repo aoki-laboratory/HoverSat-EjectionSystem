@@ -63,11 +63,19 @@ volatile int interruptCounter;
 int iTimer10;
 
 static const int LED_Pin = 17;
- 
+
+// WiFi
 WiFiUDP udp;
 TaskHandle_t task_handl;
+
+// Timer
 hw_timer_t * timer = NULL;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+// Battery
+unsigned int cnt_battery;
+unsigned char battery_status;
+unsigned char battery_persent;
 
 // Parameters
 unsigned char hover_val = 70;
@@ -89,6 +97,7 @@ void taskDisplay(void *pvParameters);
 void IRAM_ATTR onTimer(void);
 void Timer_Interrupt(void);
 void LCD_Control(void);
+uint8_t getBatteryGauge();
 
 //Setup #1
 //------------------------------------------------------------------//
@@ -98,6 +107,10 @@ void setup() {
   setupWiFiUDPserver();
   
   xTaskCreatePinnedToCore(&taskDisplay, "taskDisplay", 8192, NULL, 10, &task_handl, 0);
+
+  // Initialize IIC
+  Wire.begin();
+  Wire.setClock(400000);
 
   // Initialize Timer Interrupt
   timer = timerBegin(0, 80, true);
@@ -215,6 +228,36 @@ void taskDisplay(void *pvParameters){
 
     core0_pattern++;
     delay(1);
+    cnt_battery++;
+    if( cnt_battery >= 5000 && !log_flag ) {
+      M5.Lcd.setTextSize(2);
+      M5.Lcd.setCursor(280, 2);
+      M5.Lcd.setTextColor(WHITE);
+      M5.Lcd.printf("%3d",battery_persent);
+      battery_status = getBatteryGauge();
+      switch (battery_status) {
+      case 0xF0:
+        battery_persent = 0;
+        break;
+      case 0xE0:
+        battery_persent = 25;
+        break;
+      case 0xC0:
+        battery_persent = 50;
+        break;
+      case 0x80:
+        battery_persent = 75;
+        break;
+      case 0x00:
+        battery_persent = 100;
+        break;        
+      }
+      M5.Lcd.setTextSize(2);
+      M5.Lcd.setCursor(280, 2);
+      M5.Lcd.setTextColor(BLACK);
+      M5.Lcd.printf("%3d",battery_persent);
+      cnt_battery = 0;
+    }
   }
 }
 
@@ -344,4 +387,12 @@ void button_action(){
   }
 } 
 
-
+uint8_t getBatteryGauge() {
+  Wire.beginTransmission(0x75);
+  Wire.write(0x78);
+  Wire.endTransmission(false);
+  if(Wire.requestFrom(0x75, 1)) {
+    return Wire.read();
+  }
+  return 0xff;
+}
