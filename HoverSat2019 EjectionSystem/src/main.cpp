@@ -235,7 +235,6 @@ void loop() {
         cnt_flag = true;
       }
       if( millis() - time_buff >= 10000 ) {
-        M5.Lcd.fillRect(0, 0, 80, 80, TFT_RED);
         time_buff = millis();
         pattern = 114;
       }
@@ -244,7 +243,6 @@ void loop() {
     case 114:
       pwm = map(ex_pwm, 0, 100, 0, 65535);
       ledcWrite(LEDC_CHANNEL_0, pwm);
-      M5.Lcd.fillRect(0, 0, 80, 80, TFT_RED);
       digitalWrite( LED_Pin, 1 );
       pattern = 115;
       flag = 1;
@@ -262,7 +260,6 @@ void loop() {
       if( millis() - time_buff >= ex_time ) {
         ledcWrite(LEDC_CHANNEL_0, 0);
         digitalWrite( LED_Pin, 0 );
-        M5.Lcd.fillRect(0, 0, 80, 80, TFT_DARKGREY);
         pattern = 116;
       }
       break; 
@@ -272,6 +269,7 @@ void loop() {
         pattern = 0;
         cnt_flag = false;
         log_flag = false;
+        delay(50);
         M5.Lcd.fillRect(0, 20, 60, 60, TFT_LIGHTGREY);
         M5.Lcd.setTextSize(4);
         M5.Lcd.setCursor(8, 36);
