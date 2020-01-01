@@ -97,7 +97,8 @@ void taskDisplay(void *pvParameters);
 void IRAM_ATTR onTimer(void);
 void Timer_Interrupt(void);
 void LCD_Control(void);
-uint8_t getBatteryGauge();
+uint8_t getBatteryGauge(void);
+void taskInit(void);
 
 //Setup #1
 //------------------------------------------------------------------//
@@ -169,45 +170,8 @@ void loop() {
 //Main #0
 //------------------------------------------------------------------//
 void taskDisplay(void *pvParameters){
-  M5.Lcd.fillRect(0, 0, 320, 20, TFT_WHITE);
-  M5.Lcd.fillRect(60, 20, 260, 60, TFT_DARKGREY);
-  M5.Lcd.fillRect(0, 80, 60, 160, TFT_DARKGREY);
-  M5.Lcd.fillRect(0, 20, 60, 60, TFT_LIGHTGREY);
-  M5.Lcd.fillRect(0, 220, 320, 20, TFT_WHITE);
 
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(8, 2);
-  M5.Lcd.setTextColor(BLACK);
-  M5.Lcd.print("Satellite Ejector");
-  M5.Lcd.setCursor(40, 222);
-  M5.Lcd.print("Eject");
-  M5.Lcd.setCursor(140, 222);
-  M5.Lcd.print("MODE");
-  M5.Lcd.setCursor(228, 222);
-  M5.Lcd.print("START");
-  M5.Lcd.setTextSize(4);
-  M5.Lcd.setCursor(8, 36);
-  M5.Lcd.setTextColor(BLACK);
-  M5.Lcd.print("Ej");
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.setCursor(80, 40);
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.setCursor(8, 110);
-  M5.Lcd.print("No.");
-
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.setTextSize(5);
-  M5.Lcd.setCursor(0, 150);
-  M5.Lcd.printf("%2d", patternNo+1);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(80, 120);
-  M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(80, 170);
-  M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
+  taskInit();  
 
   //sensor.init();
   //sensor.setTimeout(500);
@@ -395,4 +359,46 @@ uint8_t getBatteryGauge() {
     return Wire.read();
   }
   return 0xff;
+}
+
+void taskInit() {
+  M5.Lcd.fillRect(0, 0, 320, 20, TFT_WHITE);
+  M5.Lcd.fillRect(60, 20, 260, 60, TFT_DARKGREY);
+  M5.Lcd.fillRect(0, 80, 60, 160, TFT_DARKGREY);
+  M5.Lcd.fillRect(0, 20, 60, 60, TFT_LIGHTGREY);
+  M5.Lcd.fillRect(0, 220, 320, 20, TFT_WHITE);
+
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(8, 2);
+  M5.Lcd.setTextColor(BLACK);
+  M5.Lcd.print("Satellite Ejector");
+  M5.Lcd.setCursor(40, 222);
+  M5.Lcd.print("Eject");
+  M5.Lcd.setCursor(140, 222);
+  M5.Lcd.print("MODE");
+  M5.Lcd.setCursor(228, 222);
+  M5.Lcd.print("START");
+  M5.Lcd.setTextSize(4);
+  M5.Lcd.setCursor(8, 36);
+  M5.Lcd.setTextColor(BLACK);
+  M5.Lcd.print("Ej");
+  M5.Lcd.setTextSize(3);
+  M5.Lcd.setCursor(80, 40);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.printf("Eject PWM %3d", parameters[patternNo][0]);
+  M5.Lcd.setTextSize(3);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(8, 110);
+  M5.Lcd.print("No.");
+
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setTextSize(5);
+  M5.Lcd.setCursor(0, 150);
+  M5.Lcd.printf("%2d", patternNo+1);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(80, 120);
+  M5.Lcd.printf("Ejection Time %4d", parameters[patternNo][1]);
+  M5.Lcd.setTextSize(2);
+  M5.Lcd.setCursor(80, 170);
+  M5.Lcd.printf("Hovering Time %4d", parameters[patternNo][2]);
 }
